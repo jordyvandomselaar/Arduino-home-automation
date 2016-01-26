@@ -4,7 +4,6 @@
 #include <NewRemoteReceiver.h>
 #include <NewRemoteTransmitter.h>
 #include <SD.h>
-#include <OneWire.h>
 
 // Create MAC
 byte mac[] = { 0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED };
