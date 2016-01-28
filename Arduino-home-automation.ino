@@ -4,6 +4,8 @@
 #include <NewRemoteReceiver.h>
 #include <NewRemoteTransmitter.h>
 #include <SD.h>
+#include <OneWire.h>
+#include <EEPROM.h>
 
 // Create MAC
 byte mac[] = { 0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED };
@@ -15,14 +17,15 @@ byte mac[] = { 0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED };
 EthernetServer server(80);
 
 // To save whether the light is on or not
-boolean light_on = false;
 NewRemoteTransmitter transmitter(123, 3, 260, 3); // Create transmitter
 String HTTP_req; // stores the HTTP request
 
 File webFile;
+File configFile;
 // Let's do the setup
 void setup()
 {
+    Serial.begin(9600);
     Ethernet.begin(mac); // Initialize Ethernet device
     server.begin(); // Start to listen for clients
 
@@ -35,6 +38,10 @@ void setup()
     // check for index.htm file
     if (!SD.exists("index.htm")) {
         return;  // can't find index file
+    }
+
+    if(!SD.exists("config.ini")){
+        Serial.println("No config file found");
     }
 }
 
@@ -67,10 +74,16 @@ void loop()
                     // Let's send our webpage
                     webFile = SD.open("index.htm"); // Open webpage
                     if(webFile){
+                        int device = 1;
                         while(webFile.available()){
-                            client.write(webFile.read()); // Send webfile to client
+                            byte output = webFile.read();
+                            // Manipulate HTML
+                            Serial.println(output);
+                            client.write(output); // Send webfile to client
+                            device++;
                         }
-                        webFile.close(); // Close the file
+                        webFile.close(); // Close the fileved text
+                    // starting new line with next cha
                     }
                 }
                     HTTP_req = "";    // finished with request, empty string
@@ -79,8 +92,7 @@ void loop()
                 } // End if c == '\n' && currentLineIsBlank
 
                 if(c == '\n'){
-                    // last character on line of received text
-                    // starting new line with next character read
+                    // last character on line of receiracter read
                     currentLineIsBlank = true;
                 }
 
@@ -116,21 +128,30 @@ void handle_ajax(){
     int newState = state.toInt();
 
     dim_light(device, newState * 12);
+    write_config(device, newState);
 }
 
 /*
  * Dim a light
- * and set light_on to true or false depending on the status.
  */
-void dim_light(int unit, int level) {
+bool dim_light(int unit, int level) {
   if (level == 0) {
     transmitter.sendUnit(unit, false);
-    light_on = false;
+    return true;
   }
   else if (level >= 1 && level <= 12) {
     transmitter.sendDim(unit, level);
-    light_on = true;
+    return true;
   }
   else {
+    return false;
   }
+}
+
+void write_config(int address, byte value){
+    EEPROM.write(address, value);
+}
+
+int read_config(int address){
+    return EEPROM.read(address);
 }
