@@ -22,6 +22,12 @@ String HTTP_req; // stores the HTTP request
 
 File webFile;
 File configFile;
+
+int DS18S20_Pin = 2; //DS18S20 Signal pin on digital 2
+
+//Temperature chip i/o
+OneWire ds(DS18S20_Pin); // on digital pin 2
+
 // Let's do the setup
 void setup()
 {
@@ -40,9 +46,6 @@ void setup()
         return;  // can't find index file
     }
 
-    if(!SD.exists("config.ini")){
-        Serial.println("No config file found");
-    }
 }
 
 void loop()
@@ -67,7 +70,11 @@ void loop()
                     client.println();
 
                     if(HTTP_req.indexOf("button") > -1){// Check for ajax
-                        handle_light_ajax();
+                       handle_light_ajax();
+                    }
+
+                    else if(HTTP_req.indexOf("getTemperature") > -1){
+                        client.println(getTemp());
                     }
 
                     else {
@@ -78,7 +85,7 @@ void loop()
                         while(webFile.available()){
                             byte output = webFile.read();
                             // Manipulate HTML
-                            Serial.println(output);
+                            // Serial.println(output);
                             client.write(output); // Send webfile to client
                             device++;
                         }
@@ -128,7 +135,7 @@ void handle_light_ajax(){
     int newState = state.toInt();
 
     dim_light(device, newState * 12);
-    write_config(device, newState);
+    // write_config(device, newState);
 }
 
 /*
@@ -154,4 +161,57 @@ void write_config(int address, byte value){
 
 int read_config(int address){
     return EEPROM.read(address);
+}
+
+/*
+ * Get the temperature from the temperature sensor
+ */
+
+float getTemp(){
+ //returns the temperature from one DS18S20 in DEG Celsius
+
+ byte data[12];
+ byte addr[8];
+
+ if ( !ds.search(addr)) {
+   Serial.println(F("Sensor not found"));
+   ds.reset_search();
+   return -1000;
+ }
+
+ if ( OneWire::crc8( addr, 7) != addr[7]) {
+   Serial.println(F("CRC is not valid!"));
+   return -1001;
+ }
+
+ if ( addr[0] != 0x10 && addr[0] != 0x28) {
+   Serial.print(F("Device is not recognized"));
+   return -1002;
+ }
+
+ ds.reset();
+ ds.select(addr);
+ ds.write(0x44,1); // start conversion, with parasite power on at the end
+
+ byte present = ds.reset();
+ ds.select(addr);  
+ ds.write(0xBE); // Read Scratchpad
+
+ 
+ for (int i = 0; i < 9; i++) { // we need 9 bytes
+  data[i] = ds.read();
+ }
+ 
+ ds.reset_search();
+ 
+ byte MSB = data[1];
+ byte LSB = data[0];
+
+ float tempRead = ((MSB << 8) | LSB); //using two's compliment
+ float TemperatureSum = tempRead / 16;
+
+ return TemperatureSum;
+ 
+
+ 
 }
