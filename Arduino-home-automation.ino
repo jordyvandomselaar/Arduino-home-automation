@@ -67,7 +67,7 @@ void loop()
                     client.println();
 
                     if(HTTP_req.indexOf("button") > -1){// Check for ajax
-                        handle_ajax();
+                        handle_light_ajax();
                     }
 
                     else {
@@ -112,7 +112,7 @@ void loop()
  * Process a light from GET request *
  */
 
-void handle_ajax(){
+void handle_light_ajax(){
     int startUrlIndex= HTTP_req.indexOf("button");
     int endUrlIndex = HTTP_req.indexOf(" HTTP");
     String url = HTTP_req.substring(startUrlIndex, endUrlIndex);
