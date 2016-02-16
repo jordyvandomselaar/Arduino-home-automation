@@ -79,21 +79,24 @@ void loop()
                     webFile = SD.open("index.htm"); // Open webpage
                     if(webFile){
                         int device = 1; // Start at device one
+                        char output[16];
+                        byte out;
                         while(webFile.available()){
-                            byte output = webFile.read();
-                            // Manipulate HTML
-                            if(output == 94){ // 94 is | (^)
-                                // output = read_config(device);
-                                if(read_config(device) == 1){
-                                    output = 49; 
+                            for(int i = 0; i < sizeof(output) + 5; i++){
+                                out = webFile.read();
+                                if(out == 94){
+                                    if(read_config(device) == 1){
+                                        out = 49;
+                                    }
+                                    else{
+                                        out = 48;
+                                    }
+                                    device++;
                                 }
-                                else{
-                                    output = 48;
-                                }
-                                device++; // Go to next Device
+                                if(out == 255){out = 0;}
+                                output[i] = out;
                             }
-                            client.write(output); // Send webfile to client
-                            
+                            client.write(output);
                         }
                         webFile.close(); // Close the file
                     }
