@@ -8,7 +8,7 @@
 #include <EEPROM.h>
 
 // Create MAC
-byte mac[] = { 0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED };
+byte mac[] = { 0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xFD };
 
 // Create IP address
 // IPAddress ip(192,168,1,102);
@@ -21,7 +21,6 @@ NewRemoteTransmitter transmitter(123, 3, 260, 3); // Create transmitter
 String HTTP_req; // stores the HTTP request
 
 File webFile;
-File configFile;
 
 int DS18S20_Pin = 2; //DS18S20 Signal pin on digital 2
 
@@ -31,7 +30,6 @@ OneWire ds(DS18S20_Pin); // on digital pin 2
 // Let's do the setup
 void setup()
 {
-    Serial.begin(9600);
     Ethernet.begin(mac); // Initialize Ethernet device
     server.begin(); // Start to listen for clients
 
@@ -45,7 +43,6 @@ void setup()
     if (!SD.exists("index.htm")) {
         return;  // can't find index file
     }
-
 }
 
 void loop()
@@ -81,16 +78,24 @@ void loop()
                     // Let's send our webpage
                     webFile = SD.open("index.htm"); // Open webpage
                     if(webFile){
-                        int device = 1;
+                        int device = 1; // Start at device one
                         while(webFile.available()){
                             byte output = webFile.read();
                             // Manipulate HTML
-                            // Serial.println(output);
+                            if(output == 94){ // 94 is | (^)
+                                // output = read_config(device);
+                                if(read_config(device) == 1){
+                                    output = 49; 
+                                }
+                                else{
+                                    output = 48;
+                                }
+                                device++; // Go to next Device
+                            }
                             client.write(output); // Send webfile to client
-                            device++;
+                            
                         }
-                        webFile.close(); // Close the fileved text
-                    // starting new line with next cha
+                        webFile.close(); // Close the file
                     }
                 }
                     HTTP_req = "";    // finished with request, empty string
@@ -134,26 +139,40 @@ void handle_light_ajax(){
     int device = button.toInt();
     int newState = state.toInt();
 
-    dim_light(device, newState * 12);
-    // write_config(device, newState);
+    send_signal(device, newState, "toggle");
+    write_config(device, newState); // Save state
 }
 
 /*
  * Dim a light
  */
-bool dim_light(int unit, int level) {
+bool send_signal(int unit, int level, String button_type) {
   if (level == 0) {
     transmitter.sendUnit(unit, false);
     return true;
   }
-  else if (level >= 1 && level <= 12) {
-    transmitter.sendDim(unit, level);
-    return true;
-  }
-  else {
-    return false;
-  }
+    else{
+        if(button_type == "dimmer"){
+            if (level >= 1 && level <= 12) {
+                transmitter.sendDim(unit, level);
+                return true;
+            }
+            else {
+                return false;
+            }
+        }
+
+        else if(button_type == "toggle"){
+            transmitter.sendUnit(unit, true);
+            return true;
+        }
+        else{
+            return false;
+        }
+    }
 }
+
+
 
 void write_config(int address, byte value){
     EEPROM.write(address, value);
@@ -174,18 +193,15 @@ float getTemp(){
  byte addr[8];
 
  if ( !ds.search(addr)) {
-   Serial.println(F("Sensor not found"));
    ds.reset_search();
    return -1000;
  }
 
  if ( OneWire::crc8( addr, 7) != addr[7]) {
-   Serial.println(F("CRC is not valid!"));
    return -1001;
  }
 
  if ( addr[0] != 0x10 && addr[0] != 0x28) {
-   Serial.print(F("Device is not recognized"));
    return -1002;
  }
 
